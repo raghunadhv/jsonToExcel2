@@ -1,0 +1,137 @@
+package parsers;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import models.EntityData;
+import models.FieldData;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
+
+public class JsonParser {
+
+    private static void traverseAllNodes(JsonNode jsonNode, String currentNode, List<EntityData> entityDataList) { // traverseAllNodes method
+        if (!jsonNode.isValueNode()) {                                               //1. checks if jsonNode is value node or not , if it is value node
+            Iterator<Map.Entry<String, JsonNode>> fieldIterator = jsonNode.fields();
+            Iterator<JsonNode> elementsIterator = jsonNode.elements();
+            List<String> nodesLst = new ArrayList<>();
+            String fieldHeaders = "";
+            String fieldValues = "";
+            EntityData newEntity = new EntityData();
+            while (fieldIterator.hasNext()) {                                             // 1.1 iterates through all fields   (*replace Iterator with 's')
+                Map.Entry<String, JsonNode> fieldObj = fieldIterator.next();
+                if (!fieldObj.getValue().isValueNode()) {                                     //1.1.1  if value of fieldObj is not value node
+                    //   System.out.println(currentNode+ " node " + fieldObj.getKey());
+                    String node = fieldObj.getKey();
+                    System.out.println("???"+fieldObj.getValue());
+                    //entityDataList.add(newEntity);
+                    nodesLst.add(node);                                                       // 1.1.1.1 adds them to nodeLst
+                } else {                                                                     //1.1.2 otherwise
+                     FieldData fieldData = new FieldData();
+                    fieldData.setFieldName(fieldObj.getValue().asText());                     // sets field Name
+                    fieldData.setFieldHeaderName(fieldObj.getKey());                          //sets field Header Name (*expand set method ignore 'set' word)
+                    newEntity.getFieldsList().add(fieldData);                                 // adds field data to field list of new Entity
+                    fieldHeaders += fieldObj.getKey() + ",";
+                    fieldValues += fieldObj.getValue() + ",";
+
+                    // System.out.println(currentNode +" field " + fieldObj.getKey() + fieldObj.getValue());
+                }
+            }
+            if (currentNode != null) {                                                    // 1.2 if current node not equal to null
+                newEntity.setEntityName(findCurrentNodeName(currentNode));                 // sets entity name of new Entity by invoking findCurrentNodeName method
+                String parentNodeName = findParentNodeName(currentNode);                   // invokes findParentNode name and stores result in parentNodeName variable
+                Optional<EntityData> entityDataOptional = findEntity(entityDataList, parentNodeName); //invokes findEntity and stores result in entityDataOptional variable
+                int depth=currentNode.split("->").length-1;                               // it sets depth variable by invoking split method of currentNode
+                newEntity.setDepth(depth);
+                if (entityDataOptional.isPresent()) {
+                    boolean isNodePresent = checkNodeListHasEntity(entityDataOptional.get(), newEntity.getEntityName());
+                    if (!entityDataOptional.get().getEntityName().equals(newEntity.getEntityName()) && (!isNodePresent)) {
+                        entityDataOptional.get().getEntityDataList().add(newEntity);
+                    }
+                    if (isNodePresent && !fieldHeaders.isEmpty()) {
+                        entityDataOptional.get().getEntityDataList().add(newEntity);
+                    }
+                } else {
+                    entityDataList.add(newEntity);
+                }
+                System.out.println(currentNode + "\n field Keys " + fieldHeaders + "\n field values " + fieldValues);
+            }
+
+            int index = 0;
+            while (elementsIterator.hasNext()) {
+                JsonNode nextNode = elementsIterator.next();
+
+                if (!nextNode.isValueNode()) {
+                    String currNode = "";
+                    if (currentNode != null) {
+                        currNode = currentNode;
+                    }
+                    if (index < nodesLst.size()) {
+                        currNode += "->" + nodesLst.get(index);
+                    }
+                    traverseAllNodes(nextNode, currNode, entityDataList);
+                    index++;
+                }
+            }
+
+        } else {
+            System.out.println("## " + jsonNode.asText());
+        }
+    }
+
+    private static boolean checkNodeListHasEntity(EntityData entityData, String entityName) {
+        return entityData.getEntityDataList().stream().filter(entity -> entity.getEntityName().equals(entityName)).findFirst().isPresent();
+    }
+
+    private static Optional<EntityData> findEntity(List<EntityData> entityDataList, String entityName) {
+
+        AtomicReference<Optional<EntityData>> entityDataOptional = new AtomicReference<>(entityDataList.stream().filter(entityData -> {
+            return entityData.getEntityName().equals(entityName);
+        }).findFirst());
+        if (!entityDataOptional.get().isPresent()) {
+            entityDataList.forEach(entityData -> {
+                        entityDataOptional.set(findEntity(entityData.getEntityDataList(), entityName));
+
+                    }
+            );
+        }
+        return entityDataOptional.get();
+    }
+
+    private static String findParentNodeName(String entityName) {
+        String splitStrings[] = entityName.split("->");
+        if (splitStrings.length > 2) {
+            return splitStrings[splitStrings.length - 2];
+        } else {
+            return splitStrings[1];
+        }
+    }
+
+    private static String findCurrentNodeName(String entityName) {
+        String splitStrings[] = entityName.split("->");
+        if (splitStrings.length > 2) {
+            return splitStrings[splitStrings.length - 1];
+        } else {
+            return splitStrings[1];
+        }
+    }
+
+    public static void main(String args[]) throws IOException {
+        System.out.println(findCurrentNodeName("->customer"));
+        System.out.println(findCurrentNodeName("->customer->shipTo"));
+        System.out.println(findCurrentNodeName("->customer->shipTo->addresses->address"));
+        parse("sample.json");
+
+    }
+
+    public static List<EntityData> parse(String fileName) throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        File jsonInputFile = new File(fileName);
+        JsonNode jsonNode = objectMapper.readTree(jsonInputFile);
+        List<EntityData> entityDataList = new ArrayList<>();
+        traverseAllNodes(jsonNode, null, entityDataList);
+        return entityDataList;
+    }
+}

@@ -1,10 +1,3 @@
-import java.io.File;
-import java.io.FileOutputStream;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 import models.EntityData;
 import models.FieldData;
@@ -15,17 +8,25 @@ import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
 public class ExcelGenerator {
     private static int rowNo;
     private static int cellNo;
-    static void createExcelFile(String directoryPath, List<EntityData> entityDataList) throws IOException {
+    public static void createExcelFile(String fileName, List<EntityData> entityDataList) throws IOException {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet spreadsheet = workbook.createSheet("cell types");
         PropertyTemplate pt = new PropertyTemplate();
         createRows(entityDataList, spreadsheet,pt,workbook);
         pt.applyBorders(spreadsheet);
-      //Write the workbook in file system
-        FileOutputStream out = new FileOutputStream(new File("Writesheet.xlsx"));
+        //Write the workbook in file system
+        FileOutputStream out = new FileOutputStream(fileName);
         workbook.write(out);
         out.close();
 
@@ -40,17 +41,17 @@ public class ExcelGenerator {
         headerBgStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
         entityDataList.forEach(entityData -> {
             cellNo= entityData.getDepth();
-            backgroundStyle.setFillForegroundColor((short) (2+entityData.getDepth()));
+            backgroundStyle.setFillForegroundColor(IndexedColors.LIME.getIndex());
             backgroundStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
             if (!previousEntityName.get().equals(entityData.getEntityName())) {   //skipping header for second row and others
                 XSSFRow row = spreadsheet.createRow(rowNo++);
                 cellNo++;
-                 XSSFCell cell = row.createCell(cellNo);
+                XSSFCell cell = row.createCell(cellNo);
 
-               cell.setCellValue(entityData.getDisplayName());
-               cell.setCellStyle(backgroundStyle);
-               spreadsheet.autoSizeColumn(cellNo);
+                cell.setCellValue(entityData.getDisplayName());
+                cell.setCellStyle(backgroundStyle);
+                spreadsheet.autoSizeColumn(cellNo);
             } else {
                 cellNo++;
                 headerPrinted.set(false);
@@ -84,7 +85,7 @@ public class ExcelGenerator {
                     fieldHeader.setCellValue(fieldData.getFieldHeaderName());
                     fieldHeader.setCellStyle(headerBgStyle);
                     spreadsheet.autoSizeColumn(cellNo);
-                 }
+                }
                 Cell fieldCell = valueRow.createCell(cellNo);
                 fieldCell.setCellValue(fieldData.getFieldName());
                 fieldCell.setCellStyle(backgroundStyle);

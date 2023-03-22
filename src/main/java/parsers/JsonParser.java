@@ -1,12 +1,14 @@
-package parsers;
+package com.kaju.excel.parsers;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import models.EntityData;
 import models.FieldData;
 
+
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -23,18 +25,18 @@ public class JsonParser {
             while (fieldIterator.hasNext()) {
                 Map.Entry<String, JsonNode> fieldObj = fieldIterator.next();
                 if (!fieldObj.getValue().isValueNode()) {
-                     String node = fieldObj.getKey();
+                    String node = fieldObj.getKey();
                     System.out.println("???"+fieldObj.getValue());
                     nodesLst.add(node);
                 } else {
-                     FieldData fieldData = new FieldData();
+                    FieldData fieldData = new FieldData();
                     fieldData.setFieldName(fieldObj.getValue().asText());
                     fieldData.setFieldHeaderName(fieldObj.getKey());
                     newEntity.getFieldsList().add(fieldData);
                     fieldHeaders += fieldObj.getKey() + ",";
                     fieldValues += fieldObj.getValue() + ",";
 
-                 }
+                }
             }
             if (currentNode != null) {
                 int depth=currentNode.split("->").length-1;
@@ -43,7 +45,7 @@ public class JsonParser {
                 newEntity.setDisplayName(name);
                 String parentNodeName = findParentNodeName(currentNode);
                 Optional<EntityData> entityDataOptional = findEntity(entityDataList, parentNodeName);
-                 newEntity.setDepth(depth);
+                newEntity.setDepth(depth);
                 if (entityDataOptional.isPresent()) {
                     boolean isNodePresent = checkNodeListHasEntity(entityDataOptional.get(), newEntity.getEntityName());
                     if (!entityDataOptional.get().getEntityName().equals(newEntity.getEntityName()) && (!isNodePresent)) {
@@ -104,7 +106,11 @@ public class JsonParser {
         if (splitStrings.length > 2) {
             return splitStrings[splitStrings.length - 2];
         } else {
-            return splitStrings[1];
+            if (splitStrings.length>1) {
+                return splitStrings[1];
+            } else {
+                return entityName;
+            }
         }
     }
 
@@ -113,24 +119,37 @@ public class JsonParser {
         if (splitStrings.length > 2) {
             return splitStrings[splitStrings.length - 1];
         } else {
-            return splitStrings[1];
+            if (splitStrings.length>1) {
+                return splitStrings[1];
+            } else {
+                return entityName;
+            }
         }
     }
 
-    public static void main(String args[]) throws IOException {
-        System.out.println(findCurrentNodeName("->customer"));
-        System.out.println(findCurrentNodeName("->customer->shipTo"));
-        System.out.println(findCurrentNodeName("->customer->shipTo->addresses->address"));
-        parse("sample.json");
 
+    public static List<EntityData> parseJsonContent(String content) throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        //File jsonInputFile = new File(fileName);
+        JsonNode jsonNode = objectMapper.readTree(content);
+        List<EntityData> entityDataList = new ArrayList<>();
+        traverseAllNodes(jsonNode, null, entityDataList);
+        return entityDataList;
     }
 
     public static List<EntityData> parse(String fileName) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
-        File jsonInputFile = new File(fileName);
-        JsonNode jsonNode = objectMapper.readTree(jsonInputFile);
-        List<EntityData> entityDataList = new ArrayList<>();
-        traverseAllNodes(jsonNode, null, entityDataList);
-        return entityDataList;
+        try(InputStream in=Thread.currentThread().getContextClassLoader().getResourceAsStream(fileName)) {
+            String content=new String((in.readAllBytes()));
+            //     File jsonInputFile = new File(fileName);
+            JsonNode jsonNode = objectMapper.readTree(content);
+            List<EntityData> entityDataList = new ArrayList<>();
+            traverseAllNodes(jsonNode, null, entityDataList);
+            return entityDataList;
+        }catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
+
     }
 }

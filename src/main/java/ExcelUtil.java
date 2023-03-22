@@ -11,7 +11,7 @@ public class ExcelUtil {
     public static void generateExel(String jsonContent) throws IOException {
 
         List<EntityData> entityDataList= JsonParser.parseJsonContent(jsonContent);
-        ExcelGenerator.createExcelFile("test.xlsx",entityDataList);
+        ExcelGenerator.createExcelFile("colors.txt.xlsx",entityDataList);
 
     }
 
